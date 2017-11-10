@@ -1,0 +1,60 @@
+package com.usi.service;
+
+import com.usi.service.device.Client;
+import com.usi.service.iot.HandleTopic;
+import com.usi.service.logger.LoggerFactory;
+import com.usi.service.utils.Utils;
+
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.logging.Logger;
+
+/**
+ * Created by Stark on 2017/10/31.
+ * //主启动程序
+ */
+public class Application {
+    private static Logger logger = LoggerFactory.getLogger();
+
+    public static void main(String[] args) {
+        if (args.length > 0 && args[0].startsWith("device")) {
+            //需要一个参数来判断设备的编号
+            HandleTopic.deviceNum = args[0];
+            Client.deviceNum = args[0];
+            logger.info("deviceNum: " + args[0]);
+        } else {
+            HandleTopic.deviceNum = "test";
+            Client.deviceNum = "test";
+            logger.info("deviceNum: test");
+        }
+        logger.warning("程序开始运行");
+        Timer timer = new Timer();
+        timer.schedule(new TimerTask() {
+            boolean connectNet = false;
+
+            @Override
+            public void run() {
+                new Thread(() -> {
+                    boolean ifConn = Utils.connect();
+                    if (!ifConn) {
+                        logger.info("连接失败");
+                    }
+                    if (connectNet && !ifConn) {
+                        connectNet = false;
+                        logger.warning("end client连接结束");
+                        Client.getEnd();
+                    } else if (!connectNet && ifConn) {
+                        logger.warning("start client开始创建");
+                        connectNet = true;
+                        try {
+                            Client.getStart();
+                        } catch (Exception e) {
+                            logger.info("client 链接失败");
+                            connectNet = false;
+                        }
+                    }
+                }).start();
+            }
+        }, 1000, 5000);
+    }
+}
